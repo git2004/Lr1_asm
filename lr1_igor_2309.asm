@@ -2,9 +2,9 @@
 .186
 .stack 100h
 .data
-A db 8fh
-B db 10h
-C db 127d
+A db 126
+B db -110
+C db -14
 D dw ?
 message1 dw "=A", 0dh, 0ah
 message2 dw "=B", 0dh, 0ah
@@ -20,13 +20,13 @@ start:
 	mov es, ax
 
 	xor dx,dx 
-	mov al, C
-	imul al 
+	mov al, C ;c
+	imul al  ;c2
 	shl ax, 2 
 	mov bx, ax 
 	shl ax, 1 
 	add ax, bx 
-	adc dx , 0h
+	adc dx , 0h ;для чего это нужно?
 	mov bl, A  
 	xchg ax,bx 
 	cbw  
@@ -35,7 +35,8 @@ start:
 	cmp dh, dl
 	jne perepoln
 	mov si, ax
-	imul al
+	mov al, a ; дописано
+	imul al ; непонятно
 	mov bl, C
 	xchg ax,bx
 	cbw 
@@ -43,10 +44,13 @@ start:
 	mov al, B
 	imul al
 	mov cx,ax 
+	CWD
 	shl ax, 2 
 	mov di, ax
-	shl ax, 7 
+	CWD
+	shl ax, 7 ; переполнение
 	add ax, cx 
+	CWD
 	add ax, di 
 	add ax, bx 
 	idiv si
