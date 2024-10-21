@@ -4,21 +4,20 @@
 .data
 A db 1 dup(?)
 B db 1 dup(?)
-C db 1 dup(?) ; все что выше 73 переполнение 74+ 4Ah
+C db 1 dup(?) ; все что выше 73 переполнение 74+ 4Ah до B6
 D dw ?
-message1 dw "=A", 0dh
+message1 dw "=A", 0dh, 0ah
 message2 dw "=B", 0dh, 0ah
 message3 dw "=C", 0dh, 0ah
-message4 db "-", 0dh, 0ah
 filename db "perepoln.txt", 0
 handle	dw ?
-buffer	db 8192 dup(?)
+buffer	db 20 dup(?)
 .code
 start:
 	mov ax, @data
 	mov ds, ax
 	mov es, ax
-
+;проверяем на зполненность
 	mov al, A
 	or al, al
 	jnz program_main2
@@ -64,16 +63,17 @@ checking:
 	mov al, B
 	cbw
 	mov cx, ax; cx b
-	shl ax, 2 ; 4b
-	mov bx, ax ; bx 4b
-	shl ax, 5; 128b
-	add ax, cx; 129b
-	xchg ax,cx
-	imul ax
-	xchg ax,cx
-	imul bx; 516b^2
-	add ax, cx; 517b^2
-	add ax, di
+	shl ax, 1; ax 2b
+	mov bx, ax; bx 2b
+	shl bx, 2; bx 8b
+	add ax, bx; ax 10b
+	add ax, cx; ax 11b
+	shl bx, 2; bx 32b
+	shl cx, 2; cx 4b
+	add bx, cx; bx 36b
+	add bx, ax; bx 47b
+	imul bx; ax = 47*11 = 517b^2
+
 	mov bx, si
 	idiv bx
 	mov [D], ax
@@ -85,7 +85,7 @@ ZZ:
 
 perepoln:
 	cmp bp, 1h
-	je creating
+	je creating ; файл создается только один раз, затем счетчик уменьшается
 	cmp bp, 1000h
 	je creating
 
@@ -96,13 +96,13 @@ creating:
 	call create_file
 	
 next_loop:
-	mov bx, 10h
+	mov bx, 10h; перевод в аски код, чторбы отделять циферки
 	call a_output
 	call b_output
 	call c_output
 	call write_file
-	lea di, buffer
-	cmp bp, 0FFFh
+	lea di, buffer ; перезаписываем одну и ту же строку в памяти и каждый раз выводим ее прерыванием
+	cmp bp, 0FFFh ; цикл или не цикл
 	je Z_end
 				
 our_circle: 	
@@ -111,11 +111,10 @@ next_a:
 	cmp [A], 0FFh
 	je next_b
 	inc [A]
-	;inc [A]
 	jne next_circle
-next_b:
+next_b:				;b не участвует в переполнении
 	mov [A], 0h
-	cmp [B], 0FFh
+	cmp [B], 2h
 	je next_c
 	inc [B]
 	jne next_circle
@@ -130,8 +129,8 @@ next_circle:
 Z_end:
 	call close_file
 Z:
-mov ah, 4Ch
-int 21h
+	mov ah, 4Ch
+	int 21h
 
 create_file:	
 	mov	ah, 3ch
@@ -140,14 +139,14 @@ create_file:
 	int 21h
 	mov	handle, ax
 	lea di, buffer
-ret
+ret ; возврат из процедуры 
 
 a_output:
 	mov ax, message1
 	stosw
 	xor	ax, ax
 	mov 	al, A
-	xor	cx, cx
+	xor	cx, cx ; выступает как счетчик перед to_ascii
 	call 	to_ascii
 	inc	di
 ret
@@ -185,14 +184,14 @@ write_file:
 ret
 
 close_file:
-	;mov	bx, handle
-	;mov	ah, 3eh
-	;int 21h
-	mov	al, '$'
+	mov	bx, handle
+	mov	ah, 3eh
+	int 21h
+	mov	al, '$' ; символ окончания строки при завершении работы с файлом
 	inc	di
 	mov	[di], al
-	;mov	ah, 09h
-	;int 21h
+	mov	ah, 09h
+	int 21h
 ret
 
 to_ascii:
