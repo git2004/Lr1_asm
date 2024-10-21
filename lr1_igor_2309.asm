@@ -2,16 +2,16 @@
 .186
 .stack 100h
 .data
-A db 1 dup(?)
+A db 1 dup(?); выделяется память 1 байт, но  не устанавливается какое-либо конкретное значение
 B db 1 dup(?)
 C db 1 dup(?) ; все что выше 73 переполнение 74+ 4Ah до B6
 D dw ?
-message1 dw "=A", 0dh, 0ah
+message1 dw "=A", 0dh, 0ah ; 0dh 0ah так нужно записывать (пробел и перенос), это разделитель, столько конструкций сделано чтобы удобнее было перебегать счетчиком
 message2 dw "=B", 0dh, 0ah
 message3 dw "=C", 0dh, 0ah
-filename db "perepoln.txt", 0
-handle	dw ?
-buffer	db 20 dup(?)
+filename db "perepoln.txt", 0 ; там где будет выводиться результат, в дебагере чтобы текст не сливался 
+handle	dw ?; переменная отвечающая за хранение файла (из мануала)
+buffer	db 20 dup(?) ;(кол-во место выделенное под запись файла)
 .code
 start:
 	mov ax, @data
@@ -20,7 +20,7 @@ start:
 ;проверяем на зполненность
 	mov al, A
 	or al, al
-	jnz program_main2
+	jnz program_main2 ; jnz: выполняет переход к метке, если флаг нуля не установлен
 	mov al, B
 	or al, al
 	jnz program_main2
@@ -29,12 +29,12 @@ start:
 	jnz program_main2
 	
 	mov bp, 1h
-	jmp checking
+	jmp checking; ближайший переход по метке
 
 program_main2:
 	mov bp, 1000h
 checking:
-	xor dx,dx 
+	xor dx,dx ; исключающее ИЛИ, два одинаковых операнда => равно 0
 	mov al, C
 	imul al 
 	shl ax, 2 
@@ -46,9 +46,9 @@ checking:
 	xchg ax,bx 
 	cbw  
 	add ax, bx 
-	jz ZZ 
+	jz ZZ ; проверка на то равен ли числитель 0
 	cmp dh, dl
-	jne perepoln
+	jne perepoln ;  выполняет переход к метке, если флаг нуля не установлен (т.е. если произошел выход за рамки ax, и что-то попало в dx, то флаг нуля не уставновлен и переходим к метсе переполнения)
 
 	mov si, ax
 	mov al, A
@@ -79,7 +79,7 @@ checking:
 	mov [D], ax
 	xor si,si
 ZZ:
-	cmp bp, 1000h
+	cmp bp, 1000h; сравниваем значения для bp, если они заданы - то завершаем так как равно 1000, если нет то прыгаем на цикл
 	jne our_circle
 	jmp Z
 
@@ -109,7 +109,7 @@ our_circle:
 
 next_a:
 	cmp [A], 0FFh
-	je next_b
+	je next_b; JE выполняет короткий переход, если первый операнд РАВЕН второму операнду
 	inc [A]
 	jne next_circle
 next_b:				;b не участвует в переполнении
