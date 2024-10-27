@@ -6,12 +6,9 @@ A db 1 dup(?); выделяется память 1 байт, но  не уста
 B db 1 dup(?)
 C db 1 dup(?) ; все что выше 73 переполнение 74+ 4Ah до B6
 D dw ?
-message1 dw "=A", 0dh, 0ah ; 0dh 0ah так нужно записывать (пробел и перенос), это разделитель, столько конструкций сделано чтобы удобнее было перебегать счетчиком
-message2 dw "=B", 0dh, 0ah
-message3 dw "=C", 0dh, 0ah
+message db "A = +000 B = +000 C = +000", 0Ah, 0Dh
 filename db "perepoln.txt", 0 ; там где будет выводиться результат, в дебагере чтобы текст не сливался 
 handle	dw ?; переменная отвечающая за хранение файла (из мануала)
-buffer	db 20 dup(?) ;(кол-во место выделенное под запись файла)
 .code
 start:
 	mov ax, @data
@@ -29,11 +26,11 @@ start:
 	jnz program_main2
 	
 	mov bp, 1h
-	jmp checking; ближайший переход по метке
+	jmp checking_znam; ближайший переход по метке
 
 program_main2:
 	mov bp, 1000h
-checking:
+checking_znam:
 	xor dx,dx ; исключающее ИЛИ, два одинаковых операнда => равно 0
 	mov al, C
 	imul al 
@@ -50,6 +47,7 @@ checking:
 	cmp dh, dl
 	jne perepoln ;  выполняет переход к метке, если флаг нуля не установлен (т.е. если произошел выход за рамки ax, и что-то попало в dx, то флаг нуля не уставновлен и переходим к метсе переполнения)
 
+chis:
 	mov si, ax
 	mov al, A
 	imul al
@@ -96,123 +94,116 @@ creating:
 	call create_file
 	
 next_loop:
-	mov bx, 10h; перевод в аски код, чторбы отделять циферки
+	;mov bx, 10h; перевод в аски код, чторбы отделять циферки
 	call a_output
-	call b_output
-	call c_output
 	call write_file
-	lea di, buffer ; перезаписываем одну и ту же строку в памяти и каждый раз выводим ее прерыванием
 	cmp bp, 0FFFh ; цикл или не цикл
 	je Z_end
 				
 our_circle: 	
 
 next_a:
-	cmp [A], 0FFh
-	je next_b; JE выполняет короткий переход, если первый операнд РАВЕН второму операнду
-	inc [A]
-	jne next_circle
-next_b:				;b не участвует в переполнении
-	mov [A], 0h
-	cmp [B], 2h
-	je next_c
-	inc [B]
-	jne next_circle
+    cmp [A], 7Fh          ; Проверяем, достигло ли A значения 127
+    je next_b              ; Если A равно 127, переход к следующей переменной B
+    inc [A]                ; Увеличиваем A
+    jmp next_circle        ; Возвращаемся к началу цикла
+
+next_b:
+    mov [A], 80h           ; Если A достигло предела, переустанавливаем его на -128
+    cmp [B], 2h           ; Проверяем, достигло ли B значения 127
+    je next_c              ; Если B равно 127, переход к следующей переменной C
+    inc [B]                ; Увеличиваем B
+    jmp next_circle        ; Возвращаемся к началу цикла
+
 next_c:
-	mov [B], 0h
-	cmp [C], 0FFh
-	je Z_end
-	inc [C]
+    mov [B], 0h           ; Если B достигло предела, переустанавливаем его на -128
+    cmp [C], 7Fh           ; Проверяем, достигло ли C значения 127
+    je Z_end               ; Если C равно 127, завершение
+    inc [C]                ; Увеличиваем C
+    jmp next_circle        ; Возвращаемся к началу цикла
 
 next_circle:	
-	jmp checking
+	jmp checking_znam
 Z_end:
 	call close_file
 Z:
 	mov ah, 4Ch
 	int 21h
 
-create_file:	
-	mov	ah, 3ch
-	mov	dx, offset filename
-	mov	cx, 0h
-	int 21h
-	mov	handle, ax
-	lea di, buffer
-ret ; возврат из процедуры 
+create_file:
+    mov ah, 3Ch
+    mov dx, offset filename
+    mov cx, 0h
+    int 21h
+    mov handle, ax
+    ;lea di, buffer
+    ret
 
 a_output:
-	mov ax, message1
-	stosw
-	xor	ax, ax
 	mov 	al, A
-	xor	cx, cx ; выступает как счетчик перед to_ascii
-	call 	to_ascii
-	inc	di
-ret
+	or	al, al
+	jge 	a_output_pol
+	neg 	al
+	mov 	[message + 4], '-'
+a_output_pol:
+	aam
+        or      al, 30h
+        mov     [message + 7], al
+        mov     al, ah
+        aam
+        or      al, 30h
+        mov     [message + 6], al
+        or      ah, 30h
+        mov     [message + 5], ah
 
-b_output:
-	mov ax, message2
-	stosw
-	xor	ax, ax
+
 	mov 	al, B
-	mov	bx, 10h
-	xor	cx, cx
-	call 	to_ascii
-	inc	di
-ret
+	cmp	ax, 7Fh
+	jge b_output_pol
+	neg al
+	mov 	[message + 13], '-'
+b_output_pol:
+	aam
+        or      al, 30h
+       	mov 	[message + 16], al
+        mov     al, ah
+        aam
+        or      al, 30h
+        mov 	[message + 15], al
+        or      ah, 30h
+        mov 	[message + 14], ah
 
-c_output:
-	mov ax, message3
-	stosw
-	xor	ax, ax
+
 	mov 	al, C
-	mov	bx, 10h
-	xor	cx, cx
-	call 	to_ascii
-	mov	al, 0ah
-	mov	[di], al
-	;inc	di
+	cmp	ax, 7Fh
+	jge c_output_pol
+	neg al
+	mov 	[message + 22], '-'
+
+c_output_pol:
+	aam
+        or      al, 30h
+        mov 	[message + 25], al
+        mov     al, ah
+        aam
+        or      al, 30h
+        mov 	[message + 24], al
+        or      ah, 30h
+        mov 	[message + 23], ah
 ret
 
 write_file:
-	mov	bx, handle
-	mov	ah, 40h
-	mov	cx, 14h
-	mov	dx, offset buffer
-	int 21h
-ret
+    mov bx, handle
+    mov ah, 40h
+    mov cx, 28            ; Количество записываемых байт
+    mov dx, offset message
+    int 21h
+    ret
 
 close_file:
-	mov	bx, handle
-	mov	ah, 3eh
-	int 21h
-	mov	al, '$' ; символ окончания строки при завершении работы с файлом
-	inc	di
-	mov	[di], al
-	mov	ah, 09h
-	int 21h
-ret
-
-to_ascii:
-	xor	dx, dx
-	div	bx 
-st1:
-	inc	cx
-	cmp	ax, 9h
-	jng	add30h
-	add	ax, 37h
-	jmp	nxt
-add30h:
-	add	al, 30h
-nxt:
-	stosb
-	xchg	ax, dx
-	cmp 	cx, 1h
-	je	st1
-	mov  	al, "h"
-	mov 	[di], al
-	inc 	di
+    mov bx, handle
+    mov ah, 3Eh
+    int 21h
 ret
 
 end start
