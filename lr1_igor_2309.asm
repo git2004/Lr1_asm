@@ -73,7 +73,7 @@ checking:
 	add bx, cx; bx 36b
 	add bx, ax; bx 47b
 	imul bx; ax = 47*11 = 517b^2
-
+	add ax, di
 	mov bx, si
 	idiv bx
 	mov [D], ax
